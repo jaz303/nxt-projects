@@ -1,0 +1,12 @@
+// nbc -S=usb -d foo.nxc  -r
+
+task main()
+{
+	OnFwd(OUT_B, 75);
+	OnFwd(OUT_C, 75);
+	Wait(1000);
+	OnRev(OUT_B, 75);
+	OnRev(OUT_C, 75);
+	Wait(1000);
+	Off(OUT_BC);
+}
