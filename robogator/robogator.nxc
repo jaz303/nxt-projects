@@ -1,12 +1,144 @@
-// nbc -S=usb -d foo.nxc  -r
+//
+// Utilities
+
+sub TurnLeft()
+{
+	OnRev(OUT_C, 85);
+	OnFwd(OUT_B, 85);
+}
+
+sub TurnRight()
+{
+	OnRev(OUT_B, 85);
+	OnFwd(OUT_C, 85);
+}
+
+sub Charge() {
+	OnRev(OUT_BC, 100);
+}
+
+sub Retreat() {
+	OnFwd(OUT_BC, 75);
+}
+
+sub StopHard() {
+	Off(OUT_BC);
+}
+
+sub StopCoast() {
+	Coast(OUT_BC);
+}
+
+sub CloseJaws() {
+	OnRev(OUT_A, 100);
+	Wait(100);
+	Off(OUT_A);
+}
+
+//
+//
+
+#define RANGE_SAFE		70
+#define RANGE_CHARGE	50
+#define RANGE_BITE		20
+
+#define STATE_GUARD		1
+#define STATE_CHARGE	2
+#define STATE_RETREAT	3
+
+int state = STATE_GUARD;
+long attack_start_time;
+int snapping = 0;
+
+mutex m_motor;
+mutex m_state;
+
+task Guard() {
+	while (true)
+	{
+		if (state == STATE_GUARD) {
+			
+			Wait(Random(8000) + 2000);
+			
+			Acquire(m_motor);
+			if (state == STATE_GUARD) {
+				if (Random(10) < 5) {
+					TurnLeft();
+				} else {
+					TurnRight();
+				}
+				Release(m_motor);
+			} else {
+				Release(m_motor);
+				continue;
+			}
+			
+			Wait(1000 + Random(7000));
+			
+			Acquire(m_motor);
+			if (state == STATE_GUARD) {
+				StopCoast();
+				Release(m_motor);
+			} else {
+				Release(m_motor);
+				continue;
+			}
+			
+		} else {
+			Wait(1000);
+		}
+	}
+}
+
+task AttackOnSight() {
+	while (true)
+	{
+		if (SensorUS(IN_4) < RANGE_BITE)
+		{
+			Acquire(m_motor);
+				if (state != STATE_CHARGE) {
+					attack_start_time = -1;
+				}
+				StopHard();
+				state = STATE_CHARGE;
+			Release(m_motor);
+			
+			int i;
+			for (i = 0; i < 12; i++) {
+				RotateMotor(OUT_A, 30, 3);
+				Wait(50);
+			}
+
+			PlayFileEx("! Laser.rso", 7, FALSE);
+			CloseJaws();
+			
+			Wait(500);
+			
+			Retreat();
+			while (SensorUS(IN_4) < RANGE_SAFE) {
+				Wait(1500);
+			}
+			StopCoast();
+			
+			state = STATE_GUARD;
+		}
+		else if (SensorUS(IN_4) < RANGE_CHARGE)
+		{
+			Acquire(m_motor);
+				Charge();
+				if (state != STATE_CHARGE) {
+					attack_start_time = CurrentTick();
+				}
+				state = STATE_CHARGE;
+			Release(m_motor);
+		}
+	}
+}
 
 task main()
 {
-	OnFwd(OUT_B, 75);
-	OnFwd(OUT_C, 75);
-	Wait(1000);
-	OnRev(OUT_B, 75);
-	OnRev(OUT_C, 75);
-	Wait(1000);
-	Off(OUT_BC);
+	Precedes(Guard, AttackOnSight);
+	CloseJaws();
+	snapping = 0;
+	SetSensorLowspeed(IN_4);
 }

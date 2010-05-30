@@ -23,7 +23,7 @@ def synthesize(dir)
     desc("run '#{dir}'")
     task(:run => dir.to_sym) do
       puts "running '#{dir}'..."
-      puts `cd #{dir}; nbc #{OPTS} -b -d -r #{object}`
+      puts `cd #{dir}; nbc #{OPTS} -d -r #{source}`
     end
     
   end
